@@ -1,30 +1,36 @@
-from typing import List
+from __future__ import annotations
+
+from typing import Iterator
 from app.core.types import Document
 
-def chunk_documents(
-    docs: List[Document],
-    chunk_size: int,
-    chunk_overlap: int
-) -> List[Document]:
+def iter_chunks(doc: Document, chunk_size: int, chunk_overlap: int) -> Iterator[Document]:
+    text = doc.text
+    n = len(text)
+    if n == 0:
+        return
 
-    chunks: List[Document] = []
+    start = 0
+    prev_start = -1
 
-    for doc in docs:
-        text = doc.text
-        start = 0
+    while start < n:
+        end = min(n, start + chunk_size)
+        chunk_text = text[start:end].strip()
 
-        while start < len(text):
-            end = min(len(text), start + chunk_size)
-            chunk_text = text[start:end].strip()
+        if chunk_text:
+            meta = dict(doc.metadata)
+            meta["start"] = start
+            meta["end"] = end
+            yield Document(text=chunk_text, metadata=meta)
 
-            if chunk_text:
-                meta = dict(doc.metadata)
-                meta["start"] = start
-                meta["end"] = end
-                chunks.append(Document(text=chunk_text, metadata=meta))
+        # Wenn wir das Ende erreicht haben: fertig
+        if end >= n:
+            break
 
-            start = end - chunk_overlap
-            if start < 0:
-                start = 0
+        # nächsten Start berechnen
+        next_start = end - chunk_overlap
+        if next_start <= start:
+            # Sicherheitsbremse gegen Endlosschleifen
+            next_start = end
 
-    return chunks
+        prev_start = start
+        start = next_start
